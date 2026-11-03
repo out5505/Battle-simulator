@@ -1,0 +1,342 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>WWII Combined Arms Battle Simulator</title><meta name="favicon" content="🎖️">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#d6cfae;--pn:#e7e0c3;--ink:#25251a;--ac:#4a5a28;--ac2:#7a4a2a;--bd:#8a8760;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1e15;--pn:#262b1f;--ink:#ddd8bd;--ac:#93a85a;--ac2:#c99466;--bd:#5a5e44}}
+:root[data-theme="dark"]{--bg:#1a1e15;--pn:#262b1f;--ink:#ddd8bd;--ac:#93a85a;--ac2:#c99466;--bd:#5a5e44}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 Georgia,serif}
+[hidden]{display:none!important}
+h1,h2,h3,button,nav{font-family:'Special Elite','Courier New',monospace}
+h1{font-size:1.5rem;margin:0}h2{font-size:1.15rem;margin:.2rem 0 .6rem}
+header{padding:12px 14px 0;border-bottom:3px double var(--bd)}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+nav button{border-radius:4px 4px 0 0;border-bottom:0}
+button,select,input{font:inherit;color:var(--ink);background:var(--pn);border:1px solid var(--bd);padding:4px 8px;border-radius:3px}
+button{cursor:pointer;background:var(--ac);color:#f2eed8;border-color:var(--ac)}
+button.on{background:var(--ac2);border-color:var(--ac2)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac2);outline-offset:1px}
+main{padding:12px 14px 28px;max-width:1300px;margin:auto}
+.pn{background:var(--pn);border:1px solid var(--bd);padding:12px;margin-bottom:12px;box-shadow:inset 0 0 0 3px var(--pn),inset 0 0 0 4px var(--bd)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:820px){.g2,.bw{grid-template-columns:1fr!important}}
+.r{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:6px 0}
+label{display:flex;flex-direction:column;font-size:.8rem;gap:2px}
+input[type=number]{width:96px}input[type=color]{padding:0;height:30px;width:44px}
+table{border-collapse:collapse;width:100%;font-size:.85rem}td,th{border-bottom:1px solid var(--bd);padding:3px 5px;text-align:left}
+.sm{font-size:.82rem}.tw{overflow-x:auto}
+.bw{display:grid;grid-template-columns:1fr 300px;gap:12px}
+#cv{width:100%;border:2px solid var(--bd);display:block;touch-action:none;background:#222;cursor:grab}
+.bar{height:10px;background:#0003;margin:2px 0 6px}.bar i{display:block;height:100%}
+.ev{max-height:210px;overflow:auto;font-size:.78rem}
+.big{font-size:1rem;padding:10px 22px}
+</style></head><body>
+<header><h1>🎖️ Combined Arms Operations Headquarters</h1><nav id="nav"><button data-v="hq">Headquarters</button><button data-v="create">Create battle</button><button data-v="enc">Unit encyclopedia</button><button data-v="edit">Battlefield editor</button><button data-v="battle">Battle simulation</button><button data-v="hist">Battle history</button></nav></header>
+<main>
+<section id="v-hq" class="pn"><h2>Operations room</h2><p>Build two armies from infantry classes, armour and air groups, pick terrain and weather, then watch the battle unfold on a live map. Armies are simulated as formations (up to 12 per unit type), so any quantity you enter is handled by scaling formation size, not by simulating each soldier.</p><p class="sm">Combat uses penetration vs. armour, range and visibility, terrain, weather, morale, experience, commander skill, supply and air superiority. Gameplay values are balancing figures inspired by historical data.</p><button class="big" data-v="create">Plan a battle</button></section>
+<section id="v-create" hidden><div class="g2"><div id="a0" class="pn"></div><div id="a1" class="pn"></div></div>
+<div class="pn"><h2>Battlefield and conditions</h2><div class="r" id="ters"></div>
+<div class="r"><label>Weather<select id="wx"><option value="clear">Clear</option><option value="rain">Rain</option><option value="fog">Fog</option><option value="snow">Snow</option><option value="storm">Storm</option></select></label>
+<label>Battle type<select id="bt"><option value="a">Army A attacks, B defends</option><option value="b">Army B attacks, A defends</option><option value="m">Meeting engagement</option></select></label>
+<label>Logistics<select id="lg"><option value="full">Fully simulated</option><option value="simple">Simplified</option><option value="off">Disabled</option></select></label>
+<label>Simulation mode<select id="mode"><option value="full">Full (0.25 h steps)</option><option value="fast">Fast (0.5 h steps)</option></select></label></div>
+<div class="r"><label style="flex-direction:row;gap:6px"><input type="checkbox" id="ucm">Use custom battlefield (terrain, traps, placed units and frontlines from the editor)</label></div>
+<div class="r"><button class="big" id="go">START BATTLE</button><button id="exb">Load example battle</button><span id="msg" class="sm"></span></div></div></section>
+<section id="v-enc" hidden class="pn"><h2>Unit encyclopedia</h2><input id="eq" placeholder="Search units, countries, tags" style="width:min(100%,360px)"><p class="sm">Years and countries are historical; attack, penetration, armour and mobility are gameplay balancing values (penetration and armour in mm-equivalent).</p><div class="tw" id="et"></div></section>
+<section id="v-battle" hidden>
+<div class="pn r" style="align-items:center"><button id="pp">Pause</button><select id="sp"><option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option><option value="0">Maximum</option></select>
+<label style="flex-direction:row;gap:4px"><input type="checkbox" id="tt" checked>Terrain</label><label style="flex-direction:row;gap:4px"><input type="checkbox" id="tl" checked>Labels</label><label style="flex-direction:row;gap:4px"><input type="checkbox" id="tc" checked>Combat</label><label style="flex-direction:row;gap:4px"><input type="checkbox" id="tf" checked>Frontlines</label><button id="zi">Zoom +</button><button id="zo">Zoom −</button></div>
+<div class="bw"><div><canvas id="cv"></canvas><p class="sm">Drag to pan, scroll or pinch buttons to zoom, click a formation to inspect it.</p></div><aside class="pn" id="hud">No battle running. Use Create battle.</aside></div>
+<div id="rep" class="pn" hidden></div></section>
+<section id="v-edit" hidden class="pn"><h2>Battlefield editor</h2>
+<div class="r" id="etl"></div>
+<div class="r"><label>Brush size<select id="ebr"><option value="0">1 tile</option><option value="1">3 x 3</option><option value="2">5 x 5</option></select></label><label>Trap owner<select id="eow"><option value="0">Army A</option><option value="1">Army B</option></select></label><label>Unit army<select id="eua"><option value="0">Army A</option><option value="1">Army B</option></select></label><label>Unit type<select id="eus"></select></label><label>Count<input type="number" id="euc" min="1" value="5000"></label></div>
+<div class="r"><button id="efill">Fill map with selected tile</button><button id="ern">Random terrain</button><button id="ect">Clear traps</button><button id="ecu">Clear units</button><button id="ecl">Clear frontlines</button><input id="enm" placeholder="Map name" style="width:140px"><button id="esv">Save map</button><select id="eld"></select><button id="elo">Load map</button></div>
+<canvas id="ed" width="768" height="480" style="width:100%;max-width:960px;border:2px solid var(--bd);touch-action:none"></canvas>
+<p class="sm">Pick a tile and click or drag to paint. Traps belong to the chosen owner and only hurt the enemy: mines hurt infantry, anti-tank mines hurt vehicles, barbed wire slows infantry and trenches protect their owner. Place unit adds a formation of the chosen type and size where you click, and if an army has placed units only those fight for it. Frontline A and B: click points from top to bottom to draw each army start line, and its units deploy along it. Then tick Use custom battlefield on the Create battle screen.</p></section>
+<section id="v-hist" hidden class="pn"><h2>Battle history</h2><div id="hl"></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),fmt=n=>Math.round(n).toLocaleString('en-US'),sg=x=>1/(1+Math.exp(-x));
+let seed=Date.now()%2147483647;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const DB={};`std|Standard Infantry|inf|Various|1939|.04|20|.0004|0|4|1|.95|0|
+gren|Grenadiers|inf|Germany|1939|.04|20|.0004|0|4|1|.95|0|def urb
+mtn|Mountain Infantry (Gebirgsjäger)|inf|Germany|1939|.04|25|.0005|0|4|1|.95|0|mtn cold
+jag|Jäger Infantry|inf|Germany|1939|.042|25|.0005|0|5|1.2|.95|0|for flk cold
+mar|Marines|inf|Various|1939|.042|25|.0005|0|4|1|.95|0|riv
+des|Desert Infantry|inf|Various|1940|.04|20|.0004|0|4.5|1|.95|0|des
+cav|Cavalry|inf|Various|1939|.035|10|.0002|0|9|1|.97|0|flk
+eng|Engineers|inf|Various|1939|.03|30|.0006|0|4|.8|.95|0|riv dig
+rec|Reconnaissance Troops|inf|Various|1939|.03|20|.0004|0|8|1.3|.95|0|flk rec
+mg|Machine-gun Teams|inf|Various|1939|.12|10|.0002|0|3|1.5|.95|0|def
+at|Anti-tank Teams|inf|Various|1940|.01|90|.04|0|3|.8|.95|0|
+mor|Mortar Teams|art|Various|1939|1.5|0|0|0|3|3|.95|0|
+arty|Artillery Guns|art|Various|1939|4|70|.1|0|2|9|.95|0|
+wesp|Wespe SP Gun|art|Germany|1943|4|60|.1|10|30|9|.8|0|
+hum|Hummel SP Gun|art|Germany|1943|5|70|.1|20|25|10|.75|0|
+p1|Panzer I|arm|Germany|1934|1.2|15|.4|13|25|1|.8|0|
+p2|Panzer II|arm|Germany|1936|2|30|.45|30|35|1|.85|0|
+p3|Panzer III|arm|Germany|1939|2|55|.6|50|30|1.5|.9|0|
+p4|Panzer IV|arm|Germany|1939|2.5|80|.65|60|30|2|.9|0|
+pan|Panther|arm|Germany|1943|3|140|.7|100|35|2.5|.75|0|
+tig|Tiger I|arm|Germany|1942|3|120|.65|110|20|2.5|.7|0|
+tig2|Tiger II|arm|Germany|1944|3.2|190|.65|150|18|3|.6|0|
+jp|Jagdpanther|arm|Germany|1944|2.5|185|.75|90|25|3|.75|0|td
+jp4|Jagdpanzer IV|arm|Germany|1944|2.3|120|.7|70|25|2.5|.8|0|td
+stug|StuG III|arm|Germany|1940|2.2|85|.65|50|30|2|.9|0|td
+ele|Elefant|arm|Germany|1943|2.5|200|.7|200|12|3.5|.5|0|td
+het|Hetzer|arm|Germany|1944|2|85|.65|60|35|2|.85|0|td
+m3|M3 Stuart|arm|USA|1941|1.5|45|.5|44|45|1|.9|0|
+m4|M4 Sherman|arm|USA|1942|2.5|80|.65|76|35|2|.92|0|
+ff|Sherman Firefly|arm|UK|1944|2.3|175|.7|76|35|2.5|.85|0|
+m10|M10 Wolverine|arm|USA|1942|2.2|115|.7|37|40|2.5|.88|0|td
+m18|M18 Hellcat|arm|USA|1943|2.3|115|.75|13|55|2.5|.85|0|td
+m36|M36 Jackson|arm|USA|1944|2.3|185|.75|60|40|3|.85|0|td
+m24|M24 Chaffee|arm|USA|1944|1.8|80|.6|25|50|1.5|.85|0|
+m26|M26 Pershing|arm|USA|1945|3|150|.65|110|30|3|.75|0|
+chu|Churchill|arm|UK|1941|2.2|90|.6|152|12|2|.85|0|
+cro|Cromwell|arm|UK|1943|2.4|90|.65|76|45|2|.8|0|
+mat|Matilda II|arm|UK|1939|1.5|40|.5|78|12|1.5|.9|0|
+val|Valentine|arm|UK|1940|1.6|45|.5|65|20|1.5|.9|0|
+t34|T-34|arm|USSR|1940|2.4|90|.65|60|40|2|.8|0|
+t3485|T-34-85|arm|USSR|1944|2.6|125|.7|75|38|2.5|.8|0|
+kv1|KV-1|arm|USSR|1940|2.3|80|.6|90|20|2|.65|0|
+kv2|KV-2|arm|USSR|1940|4|115|.25|110|15|3|.55|0|
+is2|IS-2|arm|USSR|1944|3.2|200|.5|120|25|3|.7|0|
+su85|SU-85|arm|USSR|1943|2.2|135|.7|60|35|2.5|.8|0|td
+su100|SU-100|arm|USSR|1944|2.2|170|.75|75|35|3|.8|0|td
+isu|ISU-152|arm|USSR|1943|4|175|.3|90|20|3|.7|0|td
+bf109|Bf 109|air|Germany|1937|.4|20|.02|3|570|700|.9|1|F
+fw190|Fw 190|air|Germany|1941|.6|25|.03|4|650|800|.9|1.05|F G
+spit|Spitfire|air|UK|1938|.3|20|.01|3|600|750|.92|1.05|F
+p51|P-51 Mustang|air|USA|1943|.6|25|.03|4|700|1500|.9|1.15|F G
+p47|P-47 Thunderbolt|air|USA|1943|1|35|.05|6|700|1000|.9|.95|F G
+yak9|Yak-9|air|USSR|1942|.3|20|.01|3|600|700|.85|.95|F
+bf110|Bf 110|air|Germany|1939|.6|25|.02|4|560|1000|.88|.75|F G
+ju87|Ju 87 Stuka|air|Germany|1936|2.5|45|.12|2|390|600|.9|.1|G
+ju88|Ju 88|air|Germany|1939|3|35|.05|3|480|1500|.88|.2|B
+il2|Il-2 Sturmovik|air|USSR|1941|2|55|.15|8|410|600|.88|.15|G
+hs129|Henschel Hs 129|air|Germany|1942|1.5|80|.2|7|410|600|.8|.1|G
+he111|Heinkel He 111|air|Germany|1935|5|20|.01|3|440|1200|.9|.1|B
+lanc|Avro Lancaster|air|UK|1942|9|20|.01|5|450|2500|.9|.2|B
+b17|B-17 Flying Fortress|air|USA|1938|8|20|.01|6|460|3200|.9|.35|B
+b29|B-29 Superfortress|air|USA|1944|12|20|.01|6|570|5000|.85|.3|B
+me262|Me 262|air|Germany|1944|.8|40|.04|4|870|1000|.7|1.5|F J
+he162|He 162|air|Germany|1945|.5|20|.01|3|840|600|.65|1.2|F J
+meteor|Gloster Meteor|air|UK|1944|.5|20|.01|4|790|800|.8|1.3|F J`.split('\n').forEach(r=>{const p=r.split('|');DB[p[0]]={id:p[0],name:p[1],cat:p[2],c:p[3],y:+p[4],s:+p[5],h:+p[6],f:+p[7],a:+p[8],m:+p[9],r:+p[10],rel:+p[11],ac:+p[12],tg:(p[13]||'').split(' ').filter(Boolean)}});
+const CW=48,CH=30,S=8,MW=96,MH=60,EXP=[.8,.9,1,1.12,1.25],EXPN=['Green','Trained','Regular','Veteran','Elite'];
+const man=u=>u.cat=='inf'?1:u.cat=='art'?6:u.cat=='arm'?4:1.5,val=u=>u.cat=='inf'?1:u.cat=='art'?15+u.s*3:u.cat=='arm'?20+(u.a+u.h)/8:25+u.ac*10+u.s*5;
+const FN=['Erich','Walter','Hans','George','Omar','Bernard','Ivan','Konstantin','Harold','Friedrich'],LN=['Brandt','Keller','Hartmann','Whitcomb','Harlan','Sokolov','Antonov','Lindqvist','Mercer','Vogel'],RK=['Major General','Lieutenant General','General','Colonel General'];
+const pick=a=>a[rnd()*a.length|0],gc=()=>pick(RK)+' '+pick(FN)+' '+pick(LN);
+const mkA=(n,c)=>({name:n,col:c,exp:2,mor:80,eq:100,cmd:6,tac:'auto',cn:gc(),u:{}});let AR=[mkA('Army A','#3a5f9a'),mkA('Army B','#b0432f')],B=null,paused=false;
+const sum=a=>{let m=0,t=0,p=0,pw=0;for(const id in a.u){const u=DB[id],n=a.u[id];if(u.cat=='arm')t+=n;if(u.cat=='air')p+=n;m+=n*man(u);pw+=n*val(u)}return{m,t,p,pw}};
+const TN={P:'Plains',M:'Mountains',F:'Forest',U:'Urban',R:'River',D:'Desert',S:'Swamp'};
+$('#ters').innerHTML=Object.keys(TN).map(k=>`<label style="flex-direction:row;gap:4px"><input type="checkbox" class="tc" value="${k}" ${'PF'.includes(k)?'checked':''}>${TN[k]}</label>`).join('');
+const LT='p1 p2 m3 m24'.split(' '),HV='tig tig2 m26 chu kv1 kv2 is2'.split(' ');
+const cls=u=>u.cat=='air'?(u.tg.includes('B')?'Bomber':u.tg.includes('F')?'Fighter':'CAS'):u.cat=='arm'?(u.tg.includes('td')?'Tank destroyer':LT.includes(u.id)?'Light tank':HV.includes(u.id)?'Heavy tank':'Medium tank'):u.cat=='inf'?'Infantry':'Artillery / support';
+const GRP=['Infantry','Artillery / support','Light tank','Medium tank','Heavy tank','Tank destroyer','Fighter','CAS','Bomber'],GL={CAS:'Close air support (CAS)'};
+const OPT=GRP.map(c=>`<optgroup label="${GL[c]||c}">${Object.values(DB).filter(u=>cls(u)==c).map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}</optgroup>`).join('');
+const PR=()=>{try{return JSON.parse(localStorage.getItem('wwii_pre')||'{}')}catch(e){return{}}};
+function ra(i){const a=AR[i],s=sum(a),pr=PR();$('#a'+i).innerHTML=`<h2 style="color:${a.col}">${a.name}</h2>
+<div class="r"><label>Name<input data-i="${i}" data-k="name" value="${a.name}"></label><label>Colour<input type="color" data-i="${i}" data-k="col" value="${a.col}"></label><label>Experience<select data-i="${i}" data-k="exp">${EXPN.map((e,j)=>`<option value="${j}" ${j==a.exp?'selected':''}>${e}</option>`).join('')}</select></label></div>
+<div class="r"><label>Start morale<input type="number" data-i="${i}" data-k="mor" min="10" max="100" value="${a.mor}"></label><label>Equipment %<input type="number" data-i="${i}" data-k="eq" min="50" max="130" value="${a.eq}"></label><label>Commander skill (1–10)<input type="number" data-i="${i}" data-k="cmd" min="1" max="10" value="${a.cmd}"></label></div>
+<div class="r"><label>Commander name<input data-i="${i}" data-k="cn" value="${String(a.cn).replace(/"/g,'&quot;')}" style="width:210px"></label><button data-act="cmd" data-i="${i}">Random name</button><label>Battle tactic<select data-i="${i}" data-k="tac"><option value="auto" ${!a.tac||a.tac=='auto'?'selected':''}>Auto (adapts)</option>${Object.keys(TAC).map(k=>`<option value="${k}" ${a.tac==k?'selected':''}>${TAC[k].n}</option>`).join('')}</select></label></div><p class="sm">${a.tac&&TAC[a.tac]?TAC[a.tac].d:'The commander chooses a tactic from the situation and changes it as the battle develops.'}</p>
+<div class="r"><img id="pv${i}" width="64" height="40" alt=""><select id="s${i}">${OPT}</select><input id="q${i}" type="number" min="0" value="1000"><button data-act="add" data-i="${i}">Add units</button></div>
+<div class="tw"><table>${Object.keys(a.u).map(id=>`<tr><td>${DB[id].name} <span class="sm">(${cls(DB[id])})</span></td><td><input type="number" min="0" data-i="${i}" data-u="${id}" value="${a.u[id]}"></td><td><button data-act="del" data-i="${i}" data-id="${id}">Remove</button></td></tr>`).join('')}</table></div>
+<p>Manpower <b>${fmt(s.m)}</b>, armour <b>${fmt(s.t)}</b>, aircraft <b>${fmt(s.p)}</b>, strength index <b>${fmt(s.pw)}</b></p>
+<div class="r"><button data-act="rand" data-i="${i}">Randomize</button><button data-act="dup" data-i="${i}">Copy to other army</button><button data-act="save" data-i="${i}">Save preset</button><select id="p${i}">${Object.keys(pr).map(k=>`<option>${k}</option>`).join('')}</select><button data-act="load" data-i="${i}">Load preset</button></div>`;const sl=$('#s'+i),pv=()=>$('#pv'+i).src=pic(DB[sl.value]);sl.onchange=pv;pv()}
+function ex(){const A=AR[0],Bb=AR[1];A.name='Wehrmacht Group';Bb.name='Soviet Front';A.u={std:100000,gren:20000,mtn:10000,tig:500,pan:300,jp:200,bf109:400,ju87:100,me262:50};Bb.u={std:120000,jag:15000,mar:5000,t34:700,is2:300,m4:250,yak9:350,il2:150,p51:100};A.exp=Bb.exp=3;document.querySelectorAll('.tc').forEach(c=>c.checked='MFRP'.includes(c.value));$('#wx').value='snow';$('#bt').value='a';ra(0);ra(1)}
+function act(a,i,b){const A=AR[i];if(a=='add'){const id=$('#s'+i).value;A.u[id]=(A.u[id]||0)+Math.max(0,Math.floor(+$('#q'+i).value||0))}
+else if(a=='del')delete A.u[b.dataset.id];else if(a=='cmd')A.cn=gc();
+else if(a=='rand'){A.u={};for(let k=0;k<7;k++){const u=pick(Object.values(DB)),e=u.cat=='inf'?[3,2.7]:u.cat=='art'?[1.5,2]:u.cat=='arm'?[1.5,1.8]:[1.5,1.7];A.u[u.id]=Math.round(10**(e[0]+rnd()*e[1]))}}
+else if(a=='dup'){const o=AR[1-i],c=o.col,n=o.name;AR[1-i]=JSON.parse(JSON.stringify(A));AR[1-i].col=c;AR[1-i].name=n;ra(1-i)}
+else if(a=='save'){try{const p=PR();p[A.name]=A;localStorage.setItem('wwii_pre',JSON.stringify(p))}catch(e){}}
+else if(a=='load'){const p=PR()[$('#p'+i).value];if(p)AR[i]=p}else if(a=='hrep')return showRep(JSON.parse(localStorage.getItem('wwii_hist')||'[]')[i]);
+ra(i)}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-v],[data-act]');if(!b)return;b.dataset.v?show(b.dataset.v):act(b.dataset.act,+b.dataset.i,b)});
+document.addEventListener('change',e=>{const t=e.target,i=+t.dataset.i;if(t.dataset.k){let v=t.value;if('exp mor eq cmd'.includes(t.dataset.k))v=+v;AR[i][t.dataset.k]=v;ra(i)}else if(t.dataset.u){AR[i].u[t.dataset.u]=Math.max(0,Math.floor(+t.value||0));ra(i)}});
+function show(v){['hq','create','enc','battle','hist','edit'].forEach(k=>$('#v-'+k).hidden=k!=v);document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==v));if(v=='battle')rs();if(v=='hist')hist();if(v=='edit')edInit();if(v=='enc')enc()}
+function enc(){const q=$('#eq').value.toLowerCase();$('#et').innerHTML=`<table><tr><th>Picture</th><th>Unit</th><th>Type</th><th>Country</th><th>Year</th><th>Soft atk</th><th>Penetration</th><th>Armour</th><th>Speed</th><th>Range km</th><th>Reliability</th><th>Traits</th></tr>${Object.values(DB).sort((a,b)=>GRP.indexOf(cls(a))-GRP.indexOf(cls(b))).filter(u=>(u.name+u.c+u.cat+u.tg+cls(u)).toLowerCase().includes(q)).map(u=>`<tr><td><img src="${pic(u)}" width="64" height="40" alt=""></td><td>${u.name}</td><td>${cls(u)}</td><td>${u.c}</td><td>${u.y}</td><td>${u.s}</td><td>${u.h}</td><td>${u.a}</td><td>${u.m}</td><td>${u.r}</td><td>${u.rel}</td><td>${u.tg.join(', ')}${u.ac?' air-air '+u.ac:''}</td></tr>`).join('')}</table>`}
+$('#eq').oninput=enc;$('#exb').onclick=ex;
+const TAC={
+blitz:{n:'Blitz',d:'Fast-paced offensive maneuver.',m:'a',o:1.05,t:1.15,s:1.35,ax:1.3},
+enc:{n:'Encirclement',d:'Attempts to surround opposing formations.',m:'e',o:1,t:1.05,s:1.1,fk:13},
+fire:{n:'Overwhelming Fire',d:'Concentrates firepower during an engagement.',m:'a',o:1.3,t:1,s:.75,am:1.5},
+brk:{n:'Breakthrough',d:'Attempts to penetrate enemy defenses.',m:'a',o:1.15,t:1.1,s:1.15,sec:1},
+front:{n:'Frontal Assault',d:'Direct engagement against enemy positions.',m:'a',o:1.1,t:1.2},
+inf:{n:'Infiltration Assault',d:'Emphasizes infantry infiltration and maneuver.',m:'a',o:.9,t:.85,s:1.1,infb:1,fk:8},
+elas:{n:'Elastic Defense',d:'Flexible defense that trades space for preservation of forces.',m:'f',keep:1,o:.95,t:.8},
+depth:{n:'Defense in Depth',d:'Multiple defensive positions.',m:'h',o:1,t:.8},
+ctr:{n:'Counterattack',d:'Offensive response to an enemy attack.',m:'c',o:1.2,t:1,s:1.2},
+dly:{n:'Delay',d:'Attempts to slow an enemy advance.',m:'f',o:.85,t:.85,dl:.85},
+amb:{n:'Ambush',d:'Surprise engagement against opposing forces.',m:'m',o:1,t:1,s:.8,am1:1},
+wd:{n:'Tactical Withdrawal',d:'Organized retreat from an engagement.',m:'f',wd:1,o:.6,t:.75,s:1.1,rt:22},
+last:{n:'Last Stand',d:'Increased defensive commitment.',m:'h',o:1.15,t:1,rt:12},
+gue:{n:'Guerrilla Tactics',d:'Irregular warfare and disruption.',m:'g',o:.8,t:.7,s:1.2,gu:1,mo:1.5,dl:.9},
+shock:{n:'Shock and Awe',d:'Concentrated pressure intended to overwhelm opposing forces.',m:'a',o:1.15,t:1.1,s:1.3,am:1.3,mo:4}};
+Object.values(TAC).forEach(k=>{k.rt=k.rt||30;k.s=k.s||1;k.o=k.o||1;k.t=k.t||1});
+function autoTac(i){const o=1-i,P=B.P||[1,1],r=P[i]/Math.max(.01,P[o]),s=stat(i),am=s.t*40/Math.max(1,s.pw);if(B.def==i)return r>1.25?'ctr':r>.85?'depth':r>.5?'elas':'last';return r<.35?'wd':r<.6?'dly':r<.8?'fire':am>.2?(r>1.4?'blitz':'brk'):r>1.3?'enc':'front'}
+const WXT={clear:{mob:1,vis:1,air:1,rel:1},rain:{mob:.8,vis:.8,air:.6,rel:.97},fog:{mob:.9,vis:.5,air:.3,rel:1},snow:{mob:.75,vis:.7,air:.5,rel:.88},storm:{mob:.6,vis:.6,air:.2,rel:.9}};
+const TM={P:1.15,D:1.1,F:.8,M:.6,U:.65,S:.55,R:.7},TB={mtn:'M',for:'F',urb:'U',riv:'R',des:'D'},CV={P:1,D:1,F:.75,M:.6,U:.55,S:.85,R:.8},VIS={P:1.4,D:1.5,F:.6,U:.5,M:.8,S:.8,R:1};
+const MI={P:1,F:.8,M:.5,U:.7,S:.5,D:.8,R:.35},MA={P:1,F:.6,M:.35,U:.5,S:.25,D:.9,R:.3};
+const TC={P:'#97a468',M:'#7e766a',F:'#4d6a3c',U:'#88837c',R:'#5d86a3',D:'#cdb578',S:'#5b6c4c'};
+function noise(sc){const gw=Math.ceil(CW/sc)+2,gh=Math.ceil(CH/sc)+2,g=[];for(let i=0;i<gw*gh;i++)g.push(rnd());const s=t=>t*t*(3-2*t),l=(a,b,t)=>a+(b-a)*t;return(x,y)=>{const fx=x/sc,fy=y/sc,ix=fx|0,iy=fy|0,tx=s(fx-ix),ty=s(fy-iy),v=(a,b)=>g[(iy+b)*gw+ix+a];return l(l(v(0,0),v(1,0),tx),l(v(0,1),v(1,1),tx),ty)}}
+function genMap(sel){const m=new Array(CW*CH),br=[],road=[],ns={};const base=sel.includes('P')?'P':sel.find(t=>t!='R'&&t!='U')||'P';sel.forEach(t=>ns[t]=noise(t=='U'?3:6));
+for(let y=0;y<CH;y++)for(let x=0;x<CW;x++){let b=base,bv=0;sel.forEach(t=>{if(t=='P'||t=='R')return;const v=ns[t](x,y)-(t=='U'?.74:.58);if(v>bv){bv=v;b=t}});m[y*CW+x]=b}
+if(sel.includes('R'))for(let y=0;y<CH;y++){const rx=23+Math.round(Math.sin(y*.3)*3);m[y*CW+rx]=m[y*CW+rx+1]='R'}
+for(let x=0;x<CW;x++)road[(15+Math.round(Math.sin(x*.2)*2))*CW+x]=1;
+m.forEach((t,i)=>{if(t=='R'&&(road[i]||(i/CW|0)==5||(i/CW|0)==25))br[i]=1});return{m,br,road}}
+function mkCache(){const sd0=seed;seed=B.ts||1;const c=document.createElement('canvas');c.width=CW*16;c.height=CH*16;const x=c.getContext('2d');
+for(let i=0;i<CW*CH;i++){const px=(i%CW)*16,py=(i/CW|0)*16,t=B.map[i];x.fillStyle=TC[t];x.fillRect(px,py,16,16);x.globalAlpha=.07;x.fillStyle=rnd()<.5?'#000':'#fff';x.fillRect(px,py,16,16);x.globalAlpha=1;
+if(t=='F'){x.fillStyle='#2f4a26';for(let k=0;k<4;k++){x.beginPath();x.arc(px+2+rnd()*12,py+2+rnd()*12,3,0,7);x.fill()}}
+else if(t=='M'){x.fillStyle='#5b544a';x.beginPath();x.moveTo(px+2,py+14);x.lineTo(px+8,py+2);x.lineTo(px+14,py+14);x.fill();x.fillStyle='#d9d5cb';x.fillRect(px+7,py+3,2,3)}
+else if(t=='U'){x.fillStyle='#5f5b55';for(let k=0;k<3;k++)x.fillRect(px+1+rnd()*9,py+1+rnd()*9,5,5)}
+else if(t=='S'){x.strokeStyle='#3f4e35';x.beginPath();x.moveTo(px+3,py+6);x.lineTo(px+9,py+6);x.moveTo(px+6,py+11);x.lineTo(px+13,py+11);x.stroke()}
+else if(t=='D'){x.fillStyle='#b99a5a';for(let k=0;k<3;k++)x.fillRect(px+rnd()*14,py+rnd()*14,2,2)}}
+if(!B.noroad){x.strokeStyle='#6a5233';x.lineWidth=2;x.beginPath();for(let xx=0;xx<CW;xx++){const y=15+Math.round(Math.sin(xx*.2)*2);xx?x.lineTo(xx*16+8,y*16+8):x.moveTo(8,y*16+8)}x.stroke()}
+B.br.forEach((v,i)=>{if(v){x.fillStyle='#4a3a22';x.fillRect((i%CW)*16-1,(i/CW|0)*16+4,18,8)}});
+if(!B.noroad){x.fillStyle='#777';x.fillRect(16,32,56,24);x.fillRect((CW-5)*16,(CH-4)*16,56,24)}
+if(B.def>=0){x.strokeStyle='#2a2217';x.lineWidth=2;const dx=(B.def?MW-30:30)*S;for(let y=20;y<MH*S-20;y+=18){x.beginPath();x.moveTo(dx-4,y);x.lineTo(dx+4,y+8);x.stroke()}}
+drawTraps(x);if(B.snow){x.fillStyle='rgba(255,255,255,.4)';x.fillRect(0,0,c.width,c.height)}seed=sd0;return c}
+const ci=(x,y)=>Math.max(0,Math.min(CH-1,y/2|0))*CW+Math.max(0,Math.min(CW-1,x/2|0));
+const qa=i=>{const a=AR[i];return EXP[a.exp]*a.eq/100*(1+(a.cmd-5)*.02)};
+function Q(f){const g=f.u.tg,T=f.ter;let m=qa(f.army)*(.6+f.mor/250)*B.sup[f.army].a*(.85+.3*B.AS[f.army]);
+if(f.u.cat=='arm')m*=TM[T]*(.7+.3*f.u.rel)*(B.snow?B.W.rel:1)*Math.sqrt(B.sup[f.army].f);
+for(const k in TB)if(g.includes(k)&&T==TB[k])m*=1.35;if(T=='D'&&!g.includes('des'))m*=.92;if(g.includes('mtn')&&T=='D')m*=.85;if(B.snow&&!g.includes('cold'))m*=.9;
+const tc=TAC[B.tac[f.army]];m*=tc.o*(f.u.cat=='arm'&&tc.ax?tc.ax:1)*(f.u.cat!='inf'&&tc.gu?.7:1)*(tc.am1?(B.ct!=null&&B.t<B.ct+3?1.8:.9):1)*(tc.infb&&f.u.cat=='inf'?1.1:1);return m*(B.def==f.army?1.05:1)}
+const cover=t=>{let c=CV[t.ter]*TAC[B.tac[t.army]].t;const tp=B.trap[t.ci];if(tp&&tp.t=='trench'&&tp.o==t.army)c*=t.u.cat=='arm'?.88:.65;if(t.u.cat=='arm')c=(c+1)/2;if(!t.mv&&B.def==t.army)c*=.82;if(t.u.tg.includes('dig')&&!t.mv)c*=.9;if(t.u.tg.includes('def')&&B.def==t.army)c*=.93;return c};
+const rng=f=>Math.max(2.4,f.u.r*VIS[f.ter]*B.W.vis*(1+B.rec[f.army])*(.9+.2*B.AS[f.army]));
+function mob(f){let T=f.ter;if(T=='R'&&B.br[f.ci])T='P';let m=(f.u.cat=='arm'?MA:MI)[T];const g=f.u.tg;if(g.includes('mtn')&&T=='M')m*=1.8;if(g.includes('for')&&T=='F')m*=1.3;if(g.includes('des')&&T=='D')m*=1.2;if(g.includes('riv')&&T=='R')m*=1.6;if(B.road[f.ci])m=Math.max(m,1.3);if(B.snow&&!g.includes('cold'))m*=.85;return m}
+function stat(i){let men=0,t=0,p=0,pw=0,g=0;B.F.forEach(f=>{if(f.army==i&&f.n>0){men+=f.n*man(f.u)*(f.u.cat=='arm'?.4:1);if(f.u.cat=='arm')t+=f.n;if(f.u.cat!='art'||1)pw+=f.n*val(f.u);if(f.u.cat=='art')g+=f.n}});B.ac.forEach(a=>{if(a.army==i&&a.n>0){p+=a.n;pw+=a.n*val(a.u)}});return{men,t,p,pw,g}}
+const ev=(m)=>B.ev.push({t:B.t,m}),clk=t=>{const h=6+t;return'Day '+(Math.floor(h/24)+1)+' '+String(Math.floor(h%24)).padStart(2,'0')+':'+String(Math.floor(h%1*60)).padStart(2,'0')};
+function start(){const ok=AR.every((a,i)=>Object.values(a.u).some(n=>n>0)||($('#ucm').checked&&CM.units.some(p=>p.army==i)));if(!ok){$('#msg').textContent='Each army needs at least one unit.';return}$('#msg').textContent='';
+seed=Date.now()%2147483647;const sel=[...document.querySelectorAll('.tc:checked')].map(e=>e.value);if(!sel.length)sel.push('P');const wk=$('#wx').value,bt=$('#bt').value,cu=$('#ucm').checked,mp=cu?{m:CM.map.slice(),br:[],road:[]}:genMap(sel);
+B={t:0,dt:$('#mode').value=='full'?.25:.5,lim:144,W:WXT[wk],wk,snow:wk=='snow',def:bt=='a'?1:bt=='b'?0:-1,log:$('#lg').value,map:mp.m,br:mp.br,road:mp.road,F:[],ac:[],ev:[],hist:[],shots:[],AS:[.5,.5],asum:[0,0],ticks:0,fl:{},sup:[{a:1,f:1,d:1},{a:1,f:1,d:1}],use:[{a:0,f:0,d:0},{a:0,f:0,d:0}],cas:[0,0],kia:[0,0],wnd:[0,0],pri:[0,0],tl:[0,0],al:[0,0],gl:[0,0],brk:[0,0],minsup:[1,1],rec:[0,0],done:false,sel:null,lastFire:0,men0:[0,0],sel_ter:sel};
+B.trap={};B.noroad=cu;B.ts=Date.now()%99991+1;B.lines=cu?CM.lines:[[],[]];if(cu)for(const k in CM.trap)B.trap[k]={...CM.trap[k],s:1};
+let id=0;[0,1].forEach(i=>{const a=AR[i],L=[];let rn=0,mn=0;const ents=cu&&CM.units.some(p=>p.army==i)?CM.units.filter(p=>p.army==i).map(p=>({k:p.id,N:p.n,px:p.x,py:p.y})):Object.keys(a.u).map(k=>({k,N:a.u[k]}));for(const en of ents){const k=en.k,u=DB[k],N=en.N;if(!(N>0))continue;mn+=N*man(u);if(u.tg.includes('rec'))rn+=N;
+if(u.cat=='air'){B.ac.push({u,n:N,n0:N,army:i,ph:rnd()*6,x:en.px??(i?MW-5:5),y:en.py??(i?MH-8:8),tx:MW/2,ty:MH/2,ox:(B.ac.length%5-2)*3.2,oy:(B.ac.length/5|0)*3.2-3});continue}
+const cap=u.cat=='inf'?5000:u.cat=='art'?40:50,kk=Math.min(12,Math.max(1,Math.ceil(N/cap)));for(let j=0;j<kk;j++){const n=Math.floor(N/kk)+(j<N%kk?1:0);if(n>0)L.push({id:id++,u,n,n0:n,army:i,mor:a.mor,st:'adv',dn:0,x:0,y:0,pp:en.px!=null?[en.px,en.py,j]:null})}}
+B.men0[i]=mn;B.rec[i]=Math.min(.25,rn/Math.max(1,mn)*8)+(a.cmd-5)*.02;
+const rk=f=>f.u.cat=='arm'?0:f.u.cat=='inf'?1:2;L.sort((a,b)=>rk(a)-rk(b));const rows=Math.min(L.length,22);L.forEach((f,j)=>{f.res=!f.pp&&L.length>4&&(f.u.cat=='inf'||f.u.cat=='arm')&&j%5==4;const col=j/rows|0,xb=Math.max(2,(B.def==i?42:B.def<0?30:26)-col*2.2-(f.res?8:0));f.x=i?MW-xb:xb;f.y=3.5+(j%rows)*(53/rows);if(cu&&(B.lines[0].length>1||B.lines[1].length>1)){const lx=lineX(i,f.y);f.x=Math.max(2,Math.min(MW-2,i?lx+col*2.2+(f.res?8:0):lx-col*2.2-(f.res?8:0)))}if(f.pp){const q=f.pp[2];f.x=f.pp[0]+(q%3-1)*2.4;f.y=f.pp[1]+((q/3|0)%4-1.5)*2.4}f.ter=B.map[ci(f.x,f.y)];f.ci=ci(f.x,f.y);B.F.push(f)})});
+B.need=[0,1].map(i=>{let a=0,f=0,d=0;B.F.concat(B.ac).forEach(x=>{if(x.army!=i)return;const c=x.u.cat;a+=x.n*(c=='inf'?.5:c=='art'?6:c=='arm'?4:0);f+=x.n*(c=='arm'?3:c=='air'?8:0);d+=x.n*man(x.u)*.004});return{a,f,d}});
+B.stk=B.need.map(h=>({a:h.a*60,f:h.f*40,d:h.d*96}));B.pw0=[stat(0).pw,stat(1).pw];B.P=[1,1];B.sec=[15+rnd()*30,15+rnd()*30];B.tac=[0,1].map(i=>AR[i].tac&&AR[i].tac!='auto'?AR[i].tac:autoTac(i));[0,1].forEach(i=>ev(AR[i].name+' ('+AR[i].cn+') opens with '+TAC[B.tac[i]].n+'.'));B.cache=mkCache();ev('Initial reconnaissance begins.');B.ph='Reconnaissance';$('#rep').hidden=true;paused=false;$('#pp').textContent='Pause';show('battle');fit()}
+$('#go').onclick=start;
+function tick(){const dt=B.dt,W=B.W,t=B.t+=dt,act=B.F.filter(f=>f.n>0&&f.st!='sur');B.F.forEach(f=>{if(f.hx==null)f.hx=f.x;f.dn=0;f.ci=ci(f.x,f.y);f.ter=B.map[f.ci];f.dealt=0;f.fired=0});
+[0,1].forEach(i=>{const s=B.stk[i],h=B.need[i],S=B.sup[i];if(B.log=='off')return;S.a=Math.max(.25,Math.min(1,s.a/(h.a*6)));if(B.log=='full'){S.f=Math.max(.2,Math.min(1,s.f/(h.f*6||1)));S.d=Math.max(.3,Math.min(1,s.d/(h.d*12)))}B.minsup[i]=Math.min(B.minsup[i],S.a)});
+if(Math.floor(t/3)>Math.floor((t-dt)/3))[0,1].forEach(i=>{if(!AR[i].tac||AR[i].tac=='auto'){const n=autoTac(i);if(n!=B.tac[i]){B.tac[i]=n;ev(AR[i].name+' adopts '+TAC[n].n+'.')}}});
+B.ec=[0,1].map(j=>{const a=act.filter(g=>g.army==j);if(!a.length)return null;let cx=0,cy=0;a.forEach(g=>{cx+=g.x;cy+=g.y});return{cx:cx/a.length,cy:cy/a.length,mn:Math.min(...a.map(g=>g.x)),mx:Math.max(...a.map(g=>g.x))}});
+const ua=[0,0],uf=[0,0],ud=[0,0],E=[0,0],T=[0,0],av=a=>a.u.rel*W.air*.65*B.sup[a.army].f;
+B.ac.forEach(a=>{if(a.n<=0)return;const v=a.n*av(a);T[a.army]+=v;if(a.u.tg.includes('F'))E[a.army]+=v*a.u.ac*qa(a.army)});const tot=E[0]+E[1];B.AS=[tot?E[0]/tot:.5,tot?E[1]/tot:.5];B.asum[0]+=B.AS[0];B.asum[1]+=B.AS[1];B.ticks++;
+if(E[0]*E[1]>0&&!B.fl.air){B.fl.air=1;ev('Air superiority engagements begin.');B.ph='Air superiority'}
+[0,1].forEach(i=>{const j=1-i,lf=Math.min(.3,dt*.3*E[j]/(E[i]+E[j]+T[i]*.1+1)),en=act.filter(x=>x.army==j&&!(x.res&&t<5));
+B.ac.forEach(a=>{if(a.army!=i||a.n<=0)return;const g=a.u.tg.includes('G')||a.u.tg.includes('B'),lo=a.n*Math.min(.9,lf*3/(a.u.a+2)+(g&&en.length?dt*.006:0));a.n-=lo;B.al[i]+=lo;if(a.n<.5){B.al[i]+=a.n;a.n=0;return}
+uf[i]+=a.n*av(a)*8*dt;const ops=a.n*av(a)*.35;
+if(g&&en.length&&ops>0){const tg=en[rnd()*en.length|0],q=qa(i)*(1-B.AS[j]*.4)*(tg.ter=='M'?.8:1),cv=cover(tg);let k;if(tg.u.cat=='arm')k=ops*a.u.f*sg((a.u.h-tg.u.a*.5)/(.18*tg.u.a*.5+8))*dt*q*cv;else k=ops*a.u.s*dt*q*cv;tg.dn+=k;a.tx=tg.x+a.ox;a.ty=tg.y+a.oy;if(B.shots.length<300)B.shots.push([a.x,a.y,tg.x,tg.y,i,30,1])}
+else{a.tx=MW/2+(i?6:-6)+a.ox;a.ty=10+(a.ph*8)%40+a.oy}a.x+=(a.tx-a.x)*.25;a.y+=(a.ty-a.y)*.25})});
+act.forEach(f=>{if(f.res&&t>=5){f.res=0;if(!B.fl['r'+f.army]){B.fl['r'+f.army]=1;ev(AR[f.army].name+' commits its reserves.')}}
+let e=null,bd=1e9,mask=0;for(const g of act){if(g.army==f.army)continue;const dx=g.x-f.x,dy=g.y-f.y,d=Math.hypot(dx,dy);if(d<bd){bd=d;e=g}if(d<12)mask|=Math.abs(dx)>Math.abs(dy)?(dx>0?1:2):(dy>0?4:8)}
+f.tg=e;f.d=bd;f.enc=(mask&1)+(mask>>1&1)+(mask>>2&1)+(mask>>3&1)>=3;const U=f.u,dir=f.army?-1:1,rf=rng(f),tc=TAC[B.tac[f.army]],sp=U.m*mob(f)*W.mob*(U.cat=='arm'?B.sup[f.army].f*(tc.ax||1):1)*(U.cat=='inf'&&tc.infb?1.3:1)*tc.s*(TAC[B.tac[1-f.army]].dl||1)*((B.trap[f.ci]||{}).t=='wire'&&B.trap[f.ci].o!=f.army?(U.cat=='arm'?.75:.35):1)*.4*dt;f.mv=false;
+if(f.st=='ret'){f.x-=dir*sp;f.mv=true}
+else if(e&&!f.res){const md=tc.m,fb=()=>{if(f.army?f.x<MW-10:f.x>10){f.x-=dir*sp*.7;f.mv=true}},go=()=>{const wf=Math.max(0,Math.min(1,(bd-8)/10)),fl=(U.tg.includes('flk')||U.cat=='arm'||tc.fk>=10)?((f.id%2)*2-1)*(tc.fk||7)*wf:0,slot=((f.id*7)%11-5)*1.6,ty=tc.sec?e.y+(B.sec[f.army]+slot-e.y)*wf:e.y+fl+slot*.4*wf,dx=e.x-f.x,dy=ty-f.y,dd=Math.hypot(dx,dy)||1,st=Math.min(sp,dd);if(f.lx!=null&&Math.hypot(f.x-f.lx,f.y-f.ly)<sp*.35)f.stk=(f.stk||0)+1;else f.stk=0;f.lx=f.x;f.ly=f.y;f.x+=dx/dd*st;f.y+=dy/dd*st;if(f.stk>=2)f.y+=(((f.id+(f.stk>>2))%2)*2-1)*sp*.9;f.mv=true},far=bd>rf*(U.cat=='art'?.85:.7);
+if(md=='a'){if(far)go()}else if(md=='c'){if(far&&bd<9)go()}else if(md=='f'){if(tc.wd||(bd<rf*1.6&&(!tc.keep||f.n<f.n0*.9)&&f.n>f.n0*.5&&Math.abs(f.x-f.hx)<35))fb()}else if(md=='g'){if(bd<rf*1.5)fb();else if(bd>rf*2.5)go()}else if(md=='m'){if(far&&(bd>rf*4?(B.def!=f.army||!'ac'.includes(TAC[B.tac[1-f.army]].m)):B.t-B.lastFire>6))go()}else if(md=='e'){const EN=B.ec[1-f.army];if(!EN||f.id%3==0){if(far)go()}else{const sq=f.id%3==1?-1:1,rx=f.army?EN.mn-5:EN.mx+5;let tx=EN.cx,ty=EN.cy;if(f.ph==null)f.ph=0;if(f.ph==0){ty=Math.max(3,Math.min(MH-3,EN.cy+sq*20));if(Math.abs(f.x-EN.cx)<7)f.ph=1}else if(f.ph==1){tx=rx;ty=Math.max(3,Math.min(MH-3,EN.cy+sq*12));if(Math.abs(f.x-rx)<6)f.ph=2}if(f.ph<2||far){const dx=tx-f.x,dy=ty-f.y,dd=Math.hypot(dx,dy)||1;f.x+=dx/dd*sp;f.y+=dy/dd*sp;f.mv=true}}}}
+f.x=Math.max(1,Math.min(MW-1,f.x));f.y=Math.max(1,Math.min(MH-1,f.y));
+{const k2=ci(f.x,f.y),tp=B.trap[k2];if(tp&&tp.o!=f.army&&f.mv&&(tp.t=='mine'||tp.t=='atmine')){const v=U.cat=='arm',r=tp.t=='mine'?(v?.001:.01):(v?.1:.004);f.dn+=f.n*r*dt*tp.s;tp.s-=dt*.08*(U.tg.includes('dig')?3:1);if(tp.s<=0){delete B.trap[k2];B.dirty=1;if(!B.fl.mine){B.fl.mine=1;ev('A minefield is breached.')}}}}
+const c=U.cat;uf[f.army]+=c=='arm'?f.n*(f.mv?3:.3)*dt:0;ud[f.army]+=f.n*man(U)*.004*dt;
+if(e&&bd<=rf){const q=Q(f)*(f.st=='ret'?.3:1),cv=cover(e);let k;f.fired=1;f.fa=t;B.lastFire=t;ua[f.army]+=f.n*(c=='inf'?.5:c=='art'?6:4)*(tc.am||1)*dt;
+if(!B.fl.contact){B.fl.contact=1;B.ct=t;ev('First enemy contact.');B.ph='Initial contact'}if(c=='art'&&!B.fl.art){B.fl.art=1;ev('Artillery preparation opens fire.');B.ph='Artillery preparation'}
+if(e.u.cat=='arm'){if(c=='arm'&&!B.fl.arm){B.fl.arm=1;ev('Armoured formations engage.');B.ph='Armoured engagement'}const ar=e.u.a*AR[e.army].eq/100*(Math.abs(f.y-e.y)>Math.abs(f.x-e.x)*.8?.6:1),pen=U.h*AR[f.army].eq/100*(bd>rf*.7?.85:1);k=f.n*U.f*(c=='inf'?.35:1)*sg((pen-ar)/(.18*ar+8))*q*cv*dt}
+else k=f.n*U.s*(c=='inf'?.35:1)*q*cv*dt;
+k=Math.min(k,e.n*.3);e.dn+=k;f.dealt+=k;e.mor-=(tc.mo||0)*dt;if(B.shots.length<300)B.shots.push([f.x,f.y,e.x,e.y,f.army,12,0])}});
+for(let p=0;p<2;p++)for(let a=0;a<act.length;a++)for(let b=a+1;b<act.length;b++){const f=act[a],g=act[b];let dx=g.x-f.x,dy=g.y-f.y,d=Math.hypot(dx,dy);const m=f.army==g.army?2.2:1.8;if(d<m){if(d<.01){dx=rnd()-.5;dy=rnd()-.5;d=Math.hypot(dx,dy)}const k=(m-d)/d*.3;f.x-=dx*k;f.y-=dy*k;g.x+=dx*k;g.y+=dy*k;f.x=Math.max(1,Math.min(MW-1,f.x));g.x=Math.max(1,Math.min(MW-1,g.x));f.y=Math.max(1,Math.min(MH-1,f.y));g.y=Math.max(1,Math.min(MH-1,g.y))}}
+act.forEach(f=>{const i=f.army,S=B.sup[i],A=AR[i];let dn=Math.min(f.dn,f.n*.35);if(dn>0){f.fa=B.t;f.n-=dn;if(f.n<.5){dn+=f.n;f.n=0}const U=f.u;if(U.cat=='arm')B.tl[i]+=dn;else if(U.cat=='art')B.gl[i]+=dn;const m=dn*man(U)*(U.cat=='arm'?.4:1);B.cas[i]+=m;B.kia[i]+=m*.35;B.wnd[i]+=m*.55;f.mor-=Math.min(40,dn/(f.n+dn)*170)}
+f.mor+=(f.dealt>dn*2.5&&f.dealt>0?.6:0)*dt+(f.fired?0:.4)*dt+(A.cmd-5)*.05*dt-(1-S.a)*3*dt-(1-S.d)*2*dt-Math.max(0,.5-B.AS[i])*3*dt-(f.enc?2.5*dt:0);f.mor=Math.max(0,Math.min(100,f.mor));
+if(f.n<=0)return;if(f.mor<TAC[B.tac[i]].rt&&f.st!='ret'){f.st='ret';B.brk[i]++;if(!B.fl.ret){B.fl.ret=1;ev(A.name+' formations begin to waver and withdraw.');B.ph='Morale deterioration'}}else if(f.st=='ret'&&f.mor>48&&!f.fired)f.st='adv';
+if(f.mor<8&&(f.enc||f.d<6)){const p=f.n*man(f.u)*.7*(f.u.cat=='arm'?.4:1);B.pri[i]+=p;B.cas[i]+=p*.1;f.st='sur';B.brk[i]++;f.n=0;ev(A.name+' '+f.u.name+' formation surrenders ('+fmt(p)+' captured).')}});
+[0,1].forEach(i=>{const s=B.stk[i],h=B.need[i],r=1+(AR[i].cmd-5)*.04;B.use[i].a+=ua[i];B.use[i].f+=uf[i];B.use[i].d+=ud[i];s.a=Math.max(0,s.a-ua[i]+h.a*.12*dt*r);s.f=Math.max(0,s.f-uf[i]+h.f*.12*dt*r);s.d=Math.max(0,s.d-ud[i]+h.d*.12*dt*r)});
+B.F.forEach(f=>{if(f.dn>0&&f.n>0)f.dn=0});
+if(Math.floor(t)>Math.floor(t-dt)){const a=stat(0),b=stat(1);B.hist.push({t,p:[a.pw/B.pw0[0],b.pw/B.pw0[1]],m:[a.men,b.men]})}
+const P=[stat(0).pw/B.pw0[0],stat(1).pw/B.pw0[1]],live=i=>B.F.some(f=>f.army==i&&f.n>0&&f.st!='sur'&&f.st!='ret');B.P=P;
+let end=null;if(P[0]<.12||P[1]<.12||!live(0)||!live(1))end=P[0]<P[1]?1:0;else if(t>=B.lim||t-B.lastFire>36)end=Math.abs(P[0]-P[1])<.15?-1:P[0]>P[1]?0:1;
+if(end!==null)finish(end)}
+function finish(w){B.done=true;B.win=w;ev(w<0?'The battle ends in stalemate.':AR[w].name+' secures the battlefield.');const a=stat(0),b=stat(1),st=[a,b],r={date:new Date().toISOString().slice(0,16),names:AR.map(x=>x.name),win:w,dur:Math.round(B.t),men0:B.men0,cas:B.cas.map(Math.round),kia:B.kia.map(Math.round),wnd:B.wnd.map(Math.round),pri:B.pri.map(Math.round),tl:B.tl.map(Math.round),al:B.al.map(Math.round),gl:B.gl.map(Math.round),use:B.use.map(u=>({a:Math.round(u.a),f:Math.round(u.f)})),left:st.map((s,i)=>Math.round(B.men0[i]-B.cas[i]-B.pri[i])),eff:B.P.map(x=>+x.toFixed(2)),as:B.asum.map(x=>x/B.ticks),sup:B.minsup,brk:B.brk,hist:B.hist,ev:B.ev,cmd:AR.map(x=>x.cmd),def:B.def,cn:AR.map(x=>x.cn),tac:B.tac.map(k=>TAC[k].n)};r.story=story(r);
+try{const h=JSON.parse(localStorage.getItem('wwii_hist')||'[]');h.unshift(r);localStorage.setItem('wwii_hist',JSON.stringify(h.slice(0,15)))}catch(e){}showRep(r)}
+function story(r){const w=r.win,l=1-w,n=r.names;if(w<0)return'Neither side broke the other within '+r.dur+' hours. Both armies kept '+Math.round(r.eff[0]*100)+'% and '+Math.round(r.eff[1]*100)+'% of their combat power, and the front settled into a stalemate.';
+const R=[];if(r.as[w]>.58)R.push(n[w]+' held air superiority ('+Math.round(r.as[w]*100)+'% share), strengthening its ground strikes and sapping enemy morale');if(r.tl[l]>r.tl[w]*1.5&&r.tl[l]>10)R.push('it won the armoured exchange, destroying '+fmt(r.tl[l])+' enemy vehicles for '+fmt(r.tl[w])+' lost');if(r.sup[l]<.6)R.push(n[l]+' ran short of ammunition and supplies');if(r.brk[l]>r.brk[w])R.push(r.brk[l]+' of '+n[l]+' formations broke or surrendered');if(r.cmd[w]>r.cmd[l])R.push('better command');if(r.def==w)R.push('entrenched defensive terrain');
+return n[w]+' won after '+r.dur+' hours with '+Math.round(r.eff[w]*100)+'% of its strength intact against '+Math.round(r.eff[l]*100)+'% for '+n[l]+'. '+(R.length?'Decisive factors: '+R.join('; ')+'.':'The result came from sustained attrition and pressure.')}
+function showRep(r){show('battle');const R=$('#rep');R.hidden=false;const row=(l,f)=>`<tr><td>${l}</td><td>${f(0)}</td><td>${f(1)}</td></tr>`;
+R.innerHTML=`<h2>After-action report: ${r.win<0?'Stalemate':r.names[r.win]+' victorious'}</h2><p>${r.story}</p><div class="tw"><table><tr><th></th><th>${r.names[0]}</th><th>${r.names[1]}</th></tr>${row('Commander',i=>r.cn?r.cn[i]:'')}${row('Final battle tactic',i=>r.tac?r.tac[i]:'')}${row('Soldiers deployed',i=>fmt(r.men0[i]))}${row('Soldiers lost (all casualties)',i=>fmt(r.cas[i]))}${row('Killed',i=>fmt(r.kia[i]))}${row('Wounded or incapacitated',i=>fmt(r.wnd[i]))}${row('Prisoners lost',i=>fmt(r.pri[i]))}${row('Tanks destroyed (own losses)',i=>fmt(r.tl[i]))}${row('Aircraft lost',i=>fmt(r.al[i]))}${row('Artillery lost',i=>fmt(r.gl[i]))}${row('Ammunition consumed',i=>fmt(r.use[i].a))}${row('Fuel consumed',i=>fmt(r.use[i].f))}${row('Remaining manpower',i=>fmt(r.left[i]))}${row('Remaining combat effectiveness',i=>Math.round(r.eff[i]*100)+'%')}</table></div><p>Duration: ${r.dur} hours.</p>
+<canvas id="gr" width="700" height="220" style="width:100%;max-width:700px;border:1px solid var(--bd)"></canvas><p class="sm">Remaining combat strength over time (hours on the horizontal axis).</p><h3>Timeline</h3><div class="ev">${r.ev.map(e=>`<div>${clk(e.t)} — ${e.m}</div>`).join('')}</div><p><button id="xp">Show report data (JSON)</button></p><textarea id="xt" hidden style="width:100%;height:120px"></textarea>`;
+const g=$('#gr').getContext('2d'),H=r.hist,mx=Math.max(1,...H.map(h=>h.t));g.fillStyle='#e7e0c3';g.fillRect(0,0,700,220);['#3a5f9a','#b0432f'].forEach((c,i)=>{g.strokeStyle=c;g.lineWidth=2;g.beginPath();H.forEach((h,k)=>{const x=h.t/mx*680+10,y=210-Math.min(1,h.p[i])*195;k?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()});
+$('#xp').onclick=()=>{const x=$('#xt');x.hidden=false;x.value=JSON.stringify(r);x.select()};R.scrollIntoView()}
+function hist(){let h=[];try{h=JSON.parse(localStorage.getItem('wwii_hist')||'[]')}catch(e){}$('#hl').innerHTML=h.length?h.map((r,i)=>`<p>${r.date} — ${r.names.join(' vs ')}: ${r.win<0?'stalemate':r.names[r.win]+' won'} in ${r.dur} h <button data-act="hrep" data-i="${i}">Open report</button></p>`).join(''):'<p>No completed battles yet. Run a battle to the end and its report is saved here.</p>'}
+const cv=$('#cv'),cam={x:0,y:0,z:1};let spd=1,sel=null;
+function rs(){cv.width=cv.parentElement.clientWidth||600;cv.height=Math.round(Math.min(580,innerHeight*.62));if(B)fit()}function fit(){cam.z=Math.min(cv.width/(CW*16),cv.height/(CH*16));cam.x=(cv.width-CW*16*cam.z)/2;cam.y=(cv.height-CH*16*cam.z)/2}
+addEventListener('resize',rs);let dr=null;cv.onpointerdown=e=>{dr={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,m:0};cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(Math.abs(dx)+Math.abs(dy)>4)dr.m=1;if(dr.m){cam.x=dr.cx+dx;cam.y=dr.cy+dy}};
+cv.onpointerup=e=>{if(dr&&!dr.m&&B){const r=cv.getBoundingClientRect(),wx=(e.clientX-r.left-cam.x)/cam.z/S,wy=(e.clientY-r.top-cam.y)/cam.z/S;let b=null,bd=3;B.F.concat(B.ac).forEach(f=>{if(f.n>0){const d=Math.hypot(f.x-wx,f.y-wy);if(d<bd){bd=d;b=f}}});sel=b}dr=null};
+cv.onwheel=e=>{e.preventDefault();zm(e.deltaY<0?1.15:.87,e.offsetX,e.offsetY)};function zm(k,mx=cv.width/2,my=cv.height/2){const z0=cam.z,z1=Math.min(8,Math.max(.4,z0*k));cam.x=mx-(mx-cam.x)*z1/z0;cam.y=my-(my-cam.y)*z1/z0;cam.z=z1}
+$('#zi').onclick=()=>zm(1.3);$('#zo').onclick=()=>zm(.77);$('#pp').onclick=()=>{paused=!paused;$('#pp').textContent=paused?'Resume':'Pause'};$('#sp').onchange=e=>spd=+e.target.value;
+const sh=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':Math.round(n)+'';
+function sil(x,u,px,py,s,col,ang){x.save();x.translate(px,py);x.rotate(ang||0);x.fillStyle=col;x.strokeStyle='#111';x.lineWidth=Math.max(.6,s/20);
+if(u.cat=='air'){const bm=u.tg.includes('B'),jt=u.tg.includes('J'),sp=bm?s*.65:u.tg.includes('F')?s*.42:s*.5;x.beginPath();x.ellipse(0,0,s*.5,s*.075,0,0,7);x.fill();x.stroke();x.beginPath();if(jt){x.moveTo(s*.1,0);x.lineTo(-s*.2,-sp);x.lineTo(-s*.3,-sp);x.lineTo(-s*.15,0);x.lineTo(-s*.3,sp);x.lineTo(-s*.2,sp)}else{x.moveTo(s*.12,0);x.lineTo(s*.02,-sp);x.lineTo(-s*.14,-sp);x.lineTo(-s*.08,0);x.lineTo(-s*.14,sp);x.lineTo(s*.02,sp)}x.closePath();x.fill();x.stroke();x.beginPath();x.moveTo(-s*.4,0);x.lineTo(-s*.5,-sp*.4);x.lineTo(-s*.5,sp*.4);x.closePath();x.fill();x.stroke();if(bm)[-1,1].forEach(k=>{x.beginPath();x.ellipse(s*.02,k*sp*.45,s*.1,s*.03,0,0,7);x.fill();x.stroke()});if(!jt){x.beginPath();x.moveTo(s*.52,-s*.1);x.lineTo(s*.52,s*.1);x.stroke()}}
+else if(u.cat=='arm'||(u.cat=='art'&&u.a>0)){const L=s*(.7+Math.min(u.a,150)/500),Wd=L*.55,td=u.tg.includes('td'),g=s*(.3+u.h/380);x.fillStyle='#333';x.fillRect(-L/2,-Wd/2,L,Wd);x.fillStyle=col;x.fillRect(-L*.46,-Wd*.34,L*.92,Wd*.68);x.strokeRect(-L*.46,-Wd*.34,L*.92,Wd*.68);x.fillStyle='#222';x.fillRect(td?L*.15:L*.05,-s*.04,g,s*.08);x.fillStyle=col;if(td){x.fillRect(-L*.3,-Wd*.26,L*.5,Wd*.52);x.strokeRect(-L*.3,-Wd*.26,L*.5,Wd*.52)}else{x.beginPath();x.arc(-L*.05,0,Wd*.3,0,7);x.fill();x.stroke()}}
+else if(u.cat=='inf'||u.id=='mor')icon(x,u.id,s)
+else{x.fillRect(-s*.1,-s*.18,s*.2,s*.36);x.strokeRect(-s*.1,-s*.18,s*.2,s*.36);x.fillRect(s*.05,-s*.04,s*.45,s*.08);[-1,1].forEach(k=>{x.beginPath();x.arc(-s*.1,k*s*.22,s*.1,0,7);x.fill();x.stroke()})}
+x.restore()}
+function icon(x,id,s){x.lineWidth=Math.max(1,s*.05);const F=()=>{x.fill();x.stroke()},C=(a,b,r)=>{x.beginPath();x.arc(a*s,b*s,r*s,0,7);F()},R=(a,b,w,h)=>{x.fillRect(a*s,b*s,w*s,h*s);x.strokeRect(a*s,b*s,w*s,h*s)},L=(a,b,c,d,w)=>{x.save();if(w)x.lineWidth=w;x.beginPath();x.moveTo(a*s,b*s);x.lineTo(c*s,d*s);x.stroke();x.restore()},P=(...p)=>{x.beginPath();for(let k=0;k<p.length;k+=2)k?x.lineTo(p[k]*s,p[k+1]*s):x.moveTo(p[k]*s,p[k+1]*s);x.closePath();F()},sd=()=>{C(0,-.22,.11);R(-.1,-.1,.2,.36)};
+if(id=='des'){x.beginPath();x.ellipse(0,.02*s,.28*s,.12*s,0,0,7);F();C(-.1,-.15,.07);C(.08,-.15,.07);L(.22,-.02,.33,-.26,s*.07);C(.37,-.29,.06);[-.18,-.1,.1,.2].forEach(a=>L(a,.1,a,.38))}
+else if(id=='cav'){x.beginPath();x.ellipse(0,0,.27*s,.11*s,0,0,7);F();L(.2,-.05,.3,-.28,s*.08);x.beginPath();x.ellipse(.36*s,-.3*s,.1*s,.05*s,.5,0,7);F();[-.2,-.1,.1,.2].forEach(a=>L(a,.08,a,.36));L(-.26,-.04,-.38,.14,s*.05)}
+else if(id=='mar'){sd();R(.1,-.02,.3,.06);const ax=.32,ay=-.28;C(ax,ay-.1,.04);L(ax,ay-.06,ax,ay+.16);L(ax-.07,ay-.02,ax+.07,ay-.02);x.beginPath();x.arc(ax*s,(ay+.05)*s,.1*s,0,Math.PI);x.stroke()}
+else if(id=='mtn'){P(-.32,.28,0,-.3,.32,.28);x.fillStyle='#fff';P(0,-.3,-.1,-.1,.1,-.1);L(.22,.34,.36,-.05)}
+else if(id=='jag'){P(0,-.34,-.2,-.05,.2,-.05);P(0,-.15,-.26,.15,.26,.15);R(-.04,.15,.08,.16)}
+else if(id=='eng'){R(-.34,.04,.68,.08);x.beginPath();x.arc(0,.12*s,.24*s,Math.PI,0);x.stroke();R(-.34,.12,.07,.2);R(.27,.12,.07,.2)}
+else if(id=='rec'){C(-.15,0,.14);C(.15,0,.14);R(-.05,-.06,.1,.12);R(-.22,-.24,.14,.1);R(.08,-.24,.14,.1)}
+else if(id=='mg'){R(-.1,-.04,.46,.07);R(-.3,-.1,.22,.2);R(-.22,.1,.16,.12);L(.18,.03,.08,.32);L(.18,.03,.28,.32)}
+else if(id=='at'){R(-.36,-.05,.6,.1);P(-.36,-.05,-.46,-.13,-.46,.13,-.36,.05);P(.24,-.09,.42,0,.24,.09);R(-.06,.05,.07,.15)}
+else if(id=='mor'){x.save();x.rotate(-.7);R(-.05,-.3,.1,.5);x.restore();R(-.2,.2,.4,.07);C(.3,-.2,.05)}
+else if(id=='gren'){sd();R(.14,-.3,.04,.3);C(.16,-.33,.07)}
+else{sd();R(.1,-.02,.32,.06)}}
+const PC={};function pic(u){if(PC[u.id])return PC[u.id];const c=document.createElement('canvas');c.width=64;c.height=40;const g=c.getContext('2d');g.fillStyle='#b9b58c';g.fillRect(0,0,64,40);sil(g,u,32,20,u.cat=='air'?38:34,'#6f8043',0);return PC[u.id]=c.toDataURL()}
+function draw(){const x=cv.getContext('2d');x.setTransform(1,0,0,1,0,0);x.fillStyle='#222';x.fillRect(0,0,cv.width,cv.height);if(!B)return;if(B.dirty){B.dirty=0;B.cache=mkCache()}x.setTransform(cam.z,0,0,cam.z,cam.x,cam.y);if($('#tt').checked)x.drawImage(B.cache,0,0);else{x.fillStyle='#8a8f70';x.fillRect(0,0,CW*16,CH*16)}
+const C=i=>AR[i].col,lab=$('#tl').checked;
+if($('#tf').checked){B.fp=B.fp||[[],[]];[0,1].forEach(i=>{const nb=20,raw=[],pool=B.F.filter(f=>f.army==i&&f.n>0&&f.st=='adv'&&!f.res&&f.u.cat!='art'),eg=pool.filter(f=>B.t-(f.fa||-9)<2),pl=eg.length?eg:pool;for(let b=0;b<nb;b++){const a=pl.filter(f=>Math.abs(f.y-(b+.5)*MH/nb)<MH/nb*1.5);raw[b]=a.length?(i?Math.min(...a.map(f=>f.x)):Math.max(...a.map(f=>f.x))):null}
+let lv=raw.find(v=>v!=null);if(lv==null)return;for(let b=0;b<nb;b++){if(raw[b]==null)raw[b]=lv;else lv=raw[b]}
+const p=B.fp[i];for(let b=0;b<nb;b++){const sm=(raw[Math.max(0,b-1)]+raw[b]*2+raw[Math.min(nb-1,b+1)])/4;p[b]=p[b]==null?sm:p[b]+(sm-p[b])*.12}const o=B.fp[1-i];if(o.length)for(let b=0;b<nb;b++)if(o[b]!=null)p[b]=i?Math.max(p[b],o[b]+.8):Math.min(p[b],o[b]-.8);
+x.beginPath();x.moveTo(i?MW*S:0,0);p.forEach((v,b)=>x.lineTo(v*S,(b+.5)*MH/nb*S));x.lineTo(i?MW*S:0,MH*S);x.closePath();x.fillStyle=C(i)+'22';x.fill();
+x.strokeStyle=C(i);x.lineWidth=3;x.setLineDash([8,5]);x.beginPath();p.forEach((v,b)=>{const px=v*S,py=(b+.5)*MH/nb*S;b?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();x.setLineDash([]);x.fillStyle=C(i);x.font='bold 11px sans-serif';x.fillText(AR[i].name+': '+TAC[B.tac[i]].n,Math.max(4,i?p[1]*S+8:p[1]*S-190),14)})}
+B.F.forEach(f=>{if(f.n<=0)return;const px=f.x*S,py=f.y*S,w=Math.min(17,10+Math.log10(f.n+1)*1.3),h=w*.7;x.globalAlpha=f.res?.55:1;x.fillStyle=C(f.army)+'cc';x.strokeStyle=f.st=='ret'?'#e8d87a':'#111';x.lineWidth=1.5;if(f.st=='ret')x.setLineDash([3,2]);x.fillRect(px-w/2,py-h/2,w,h);x.strokeRect(px-w/2,py-h/2,w,h);x.setLineDash([]);x.strokeStyle='#fff';x.lineWidth=1;const c=f.u.cat;x.beginPath();
+if(c=='inf'||f.u.id=='mor'){sil(x,f.u,px,py,w*.85,'#f3efd8',0);x.beginPath()}else if(c=='arm'||(c=='art'&&f.u.a>0)){sil(x,f.u,px,py,w*.95,'#f3efd8',f.army?Math.PI:0);x.beginPath()}else{x.arc(px,py,h/4,0,7);x.fillStyle='#fff';x.fill()}x.stroke();x.globalAlpha=1;
+if(lab){x.fillStyle='#111';x.font='bold 8px sans-serif';x.fillText(sh(f.n)+' '+f.u.name.slice(0,9)+({'Light tank':' L','Medium tank':' M','Heavy tank':' H','Tank destroyer':' TD'}[cls(f.u)]||''),px-w/2,py+h/2+9)}});
+B.ac.forEach(a=>{if(a.n<=0)return;const px=(a.x+Math.cos(B.t*2+a.ph)*2)*S,py=(a.y+Math.sin(B.t*2+a.ph)*2)*S;sil(x,a.u,px,py,24,C(a.army),Math.atan2(a.ty+a.oy-a.y,a.tx+a.ox-a.x));if(lab){x.fillStyle='#111';x.font='bold 8px sans-serif';x.fillText(sh(a.n)+' '+a.u.name.slice(0,8)+' ['+{Fighter:'FTR',CAS:'CAS',Bomber:'BMB'}[cls(a.u)]+']',px+8,py)}});
+if($('#tc').checked){B.shots=B.shots.filter(s=>s[5]-->0);B.shots.forEach(s=>{x.strokeStyle=s[6]?'#ffd24a':'#ff6a3a';x.globalAlpha=Math.min(1,s[5]/10);x.lineWidth=s[6]?1:1.5;x.beginPath();x.moveTo(s[0]*S,s[1]*S);x.lineTo(s[2]*S,s[3]*S);x.stroke();x.fillStyle='#ff4a1a';x.beginPath();x.arc(s[2]*S,s[3]*S,3,0,7);x.fill();x.globalAlpha=1})}else B.shots=[];
+if(sel&&sel.n>0){x.strokeStyle='#fff';x.lineWidth=2;x.beginPath();x.arc(sel.x*S,sel.y*S,18,0,7);x.stroke()}}
+let hl=0;function hud(){const n=performance.now();if(n-hl<250||!B)return;hl=n;const s=[stat(0),stat(1)],P=[s[0].pw/B.pw0[0],s[1].pw/B.pw0[1]];
+const bl=i=>`<b style="color:${AR[i].col}">${AR[i].name}</b><div class="bar"><i style="width:${Math.min(100,P[i]*100)}%;background:${AR[i].col}"></i></div><span class="sm">Tactic: <b>${TAC[B.tac[i]].n}</b>${!AR[i].tac||AR[i].tac=='auto'?' (auto)':''}<br>Commander ${AR[i].cn}<br>Men ${fmt(s[i].men)}, tanks ${fmt(s[i].t)}, guns ${fmt(s[i].g)}, aircraft ${fmt(s[i].p)}<br>Ammo ${Math.round(B.sup[i].a*100)}% fuel ${Math.round(B.sup[i].f*100)}% food ${Math.round(B.sup[i].d*100)}% · Air share ${Math.round(B.AS[i]*100)}%</span>`;
+let si='';if(sel&&sel.n>0){const u=sel.u;si=`<hr><b>${AR[sel.army].name}: ${u.name} (${cls(u)})</b><br>${sel.u.cat=='air'?'Aircraft':'Strength'} ${fmt(sel.n)} / ${fmt(sel.n0)}${sel.mor!=null?'<br>Morale '+Math.round(sel.mor)+', '+({adv:'engaging',ret:'retreating'}[sel.st]||sel.st)+(sel.res?' (reserve)':'')+'<br>Terrain: '+TN[sel.ter]:''}<br>Atk ${u.s}, pen ${u.h}, armour ${u.a}`}
+$('#hud').innerHTML=`<h3>${clk(B.t)}</h3><p class="sm">Phase: ${B.ph}${B.done?' (finished)':''}</p>${bl(0)}<br>${bl(1)}${si}<hr><div class="ev">${B.ev.slice(-12).reverse().map(e=>`<div>${clk(e.t)} — ${e.m}</div>`).join('')}</div>`}
+let last=0,acc=0;function loop(ts){requestAnimationFrame(loop);if(B&&!B.done&&!paused){const el=Math.min(ts-last,100)/1000;if(spd==0){const t0=performance.now();while(performance.now()-t0<14&&!B.done)tick()}else{acc+=el*spd*2;while(acc>=1&&!B.done){tick();acc--}}}last=ts;if(!$('#v-battle').hidden){draw();hud()}if(!$('#v-edit').hidden&&edDirty)edDraw()}
+const TL=[['P','Plains'],['F','Forest'],['M','Mountains'],['S','Swamp'],['D','Desert'],['U','Urban'],['R','Water'],['mine','Mines'],['atmine','Anti-tank mines'],['wire','Barbed wire'],['trench','Trenches'],['noTrap','Erase trap'],['unit','Place unit'],['unitDel','Remove unit'],['fl0','Frontline A'],['fl1','Frontline B']];
+let CM={map:Array(CW*CH).fill('P'),trap:{},units:[],lines:[[],[]]},tool='P',edDirty=1,edDown=0;const ed=$('#ed');
+function lineX(i,y){const L=B.lines,own=L[i].length>1,ln=own?L[i]:L[1-i].length>1?L[1-i]:null;if(!ln)return i?MW-26:26;const off=own?0:(i?12:-12),p=[...ln].sort((a,b)=>a[1]-b[1]);if(y<=p[0][1])return p[0][0]+off;for(let k=1;k<p.length;k++)if(y<=p[k][1]){const t=(y-p[k-1][1])/((p[k][1]-p[k-1][1])||1);return p[k-1][0]+(p[k][0]-p[k-1][0])*t+off}return p[p.length-1][0]+off}
+function drawTraps(x){for(const k in B.trap){const t=B.trap[k],px=(k%CW)*16,py=(k/CW|0)*16;x.strokeStyle=x.fillStyle=AR[t.o].col;x.lineWidth=1.5;x.beginPath();
+if(t.t=='mine'){x.arc(px+8,py+8,3,0,7);x.fill();x.moveTo(px+3,py+8);x.lineTo(px+13,py+8);x.stroke()}
+else if(t.t=='atmine'){x.fillRect(px+4,py+5,8,6);x.moveTo(px+3,py+3);x.lineTo(px+13,py+13);x.moveTo(px+13,py+3);x.lineTo(px+3,py+13);x.stroke()}
+else if(t.t=='wire'){x.moveTo(px+1,py+11);for(let q=0;q<4;q++){x.lineTo(px+4+q*4,py+4);x.lineTo(px+6+q*4,py+12)}x.stroke()}
+else{x.lineWidth=3;x.moveTo(px+1,py+8);x.lineTo(px+15,py+8);x.stroke();x.lineWidth=1;x.strokeRect(px+1,py+5,14,6)}}}
+const MPS=()=>{try{return JSON.parse(localStorage.getItem('wwii_maps')||'{}')}catch(e){return{}}};
+function edTools(){$('#etl').innerHTML=TL.map(t=>`<button data-tool="${t[0]}" class="${t[0]==tool?'on':''}">${t[1]}</button>`).join('')}
+function edList(){$('#eld').innerHTML=Object.keys(MPS()).map(k=>`<option>${k}</option>`).join('')}
+function edInit(){edTools();edList();edDirty=1}
+function edCell(e){const r=ed.getBoundingClientRect(),px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;return{cx:Math.min(CW-1,Math.max(0,px*CW|0)),cy:Math.min(CH-1,Math.max(0,py*CH|0)),kx:px*MW,ky:py*MH}}
+function edPaint(e){const{cx,cy}=edCell(e),R=+$('#ebr').value;for(let y=cy-R;y<=cy+R;y++)for(let x=cx-R;x<=cx+R;x++){if(x<0||y<0||x>=CW||y>=CH)continue;const i=y*CW+x;if(tool.length==1)CM.map[i]=tool;else if(tool=='noTrap')delete CM.trap[i];else CM.trap[i]={t:tool,o:+$('#eow').value}}edDirty=1}
+function edDraw(){edDirty=0;const sv=B;B={map:CM.map,br:[],road:[],trap:CM.trap,noroad:1,def:-1,snow:false,ts:777};let c;try{c=mkCache()}finally{B=sv}const x=ed.getContext('2d');x.drawImage(c,0,0);x.font='bold 10px sans-serif';
+CM.units.forEach(u=>{const d=DB[u.id];sil(x,d,u.x*S,u.y*S,24,AR[u.army].col,u.army?Math.PI:0);x.fillStyle='#111';x.fillText(sh(u.n)+' '+d.name.slice(0,10),u.x*S-14,u.y*S+18)});
+[0,1].forEach(i=>{const L=CM.lines[i];x.strokeStyle=x.fillStyle=AR[i].col;x.lineWidth=3;x.setLineDash([8,5]);x.beginPath();L.forEach((p,k)=>k?x.lineTo(p[0]*S,p[1]*S):x.moveTo(p[0]*S,p[1]*S));x.stroke();x.setLineDash([]);L.forEach(p=>x.fillRect(p[0]*S-3,p[1]*S-3,6,6))})}
+$('#etl').onclick=e=>{const b=e.target.closest('[data-tool]');if(b){tool=b.dataset.tool;edTools()}};
+ed.onpointerdown=e=>{edDown=1;ed.setPointerCapture(e.pointerId);const c=edCell(e);if(tool=='unit'){CM.units.push({army:+$('#eua').value,id:$('#eus').value,n:Math.max(1,Math.floor(+$('#euc').value||1)),x:c.kx,y:c.ky});edDirty=1}else if(tool=='unitDel'){let b=-1,bd=4;CM.units.forEach((u,k)=>{const d=Math.hypot(u.x-c.kx,u.y-c.ky);if(d<bd){bd=d;b=k}});if(b>=0)CM.units.splice(b,1);edDirty=1}else if(tool[0]=='f'&&tool[1]=='l'){CM.lines[+tool[2]].push([c.kx,c.ky]);edDirty=1}else edPaint(e)};
+ed.onpointermove=e=>{if(edDown&&(tool.length==1||['mine','atmine','wire','trench','noTrap'].includes(tool)))edPaint(e)};ed.onpointerup=()=>edDown=0;
+$('#eus').innerHTML=OPT;$('#efill').onclick=()=>{CM.map.fill(tool.length==1?tool:'P');edDirty=1};$('#ect').onclick=()=>{CM.trap={};edDirty=1};$('#ecu').onclick=()=>{CM.units=[];edDirty=1};$('#ecl').onclick=()=>{CM.lines=[[],[]];edDirty=1};
+$('#ern').onclick=()=>{const s=[...document.querySelectorAll('.tc:checked')].map(e=>e.value);CM.map=genMap(s.length?s:['P','F','M','R']).m;edDirty=1};
+$('#esv').onclick=()=>{try{const m=MPS();m[$('#enm').value||'Map '+(Object.keys(m).length+1)]=CM;localStorage.setItem('wwii_maps',JSON.stringify(m))}catch(e){}edList()};$('#elo').onclick=()=>{const m=MPS()[$('#eld').value];if(m){CM=m;edDirty=1}};
+ra(0);ra(1);show('hq');rs();requestAnimationFrame(loop);
+</script></body></html>
